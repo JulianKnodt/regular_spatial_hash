@@ -1,4 +1,4 @@
-use std::hash::{Hasher, BuildHasherDefault};
+use std::hash::{BuildHasherDefault, Hasher};
 use std::mem::transmute;
 
 #[derive(Default)]

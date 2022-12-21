@@ -11,10 +11,10 @@ pub trait RegularCoord: Hash {
         Self: Sized;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct HexAxial<T> {
-    q: T,
-    r: T,
+    pub q: T,
+    pub r: T,
 }
 
 impl Hash for HexAxial<i32> {
@@ -97,10 +97,10 @@ impl HexAxial<i32> {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Euclidean<T> {
-    x: T,
-    y: T,
+    pub x: T,
+    pub y: T,
 }
 
 impl Hash for Euclidean<i32> {
@@ -124,8 +124,10 @@ impl Euclidean<i32> {
             [-1, -1],
             [-1, 0],
             [-1, 1],
+            //
             [0, -1],
-            [-1, 1],
+            [0, 1],
+            //
             [1, -1],
             [1, 0],
             [1, 1],
@@ -155,11 +157,11 @@ impl RegularCoord for Euclidean<i32> {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TriCoord<T> {
-    s: T,
-    t: T,
-    u: T,
+    pub s: T,
+    pub t: T,
+    pub u: T,
 }
 
 impl Hash for TriCoord<i32> {

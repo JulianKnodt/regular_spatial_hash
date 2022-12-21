@@ -9,10 +9,14 @@ mod hash;
 mod tests;
 
 use coordinates::{Euclidean, HexAxial, RegularCoord, TriCoord};
-use std::collections::hash_map::RandomState;
 use std::default::Default;
+//use std::collections::hash_map::RandomState;
+use std::collections::BTreeMap;
 use std::hash::{BuildHasher, Hasher};
 use std::iter;
+
+//type DefaultHashBuilder = RandomState;
+type DefaultHashBuilder = hash::SimpleHashBuilder;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CoordinateKind {
@@ -46,21 +50,23 @@ impl<I, S: Iterator<Item = I>, T: Iterator<Item = I>, U: Iterator<Item = I>> Ite
 /// A Hexagonal Spatial Hash.
 /// Unlike most spatial hashes that use cubes, this uses hexagons.
 #[derive(Debug, Clone)]
-pub struct SpatialHash<T, const N: usize = 128, S = RandomState> {
+pub struct SpatialHash<T, const N: usize = 256, S = DefaultHashBuilder> {
+    /// Where the items are actually stored
     data: [Vec<T>; N],
 
+    /// Hash State
     state: S,
 
     pub kind: CoordinateKind,
 }
 
-impl<T> Default for SpatialHash<T, 256, hash::SimpleHashBuilder> {
+impl<T> Default for SpatialHash<T, 256, DefaultHashBuilder> {
     fn default() -> Self {
         Self::new(CoordinateKind::Tri { side_len: 1. })
     }
 }
 
-impl<T> SpatialHash<T, 256, hash::SimpleHashBuilder> {
+impl<T> SpatialHash<T, 256, DefaultHashBuilder> {
     /// Create an empty hex spatial hash
     pub fn new(kind: CoordinateKind) -> Self {
         SpatialHash {
@@ -70,28 +76,16 @@ impl<T> SpatialHash<T, 256, hash::SimpleHashBuilder> {
         }
     }
     pub fn cube(side_len: f32) -> Self {
-        SpatialHash {
-            data: [(); _].map(|_| Vec::new()),
-            kind: CoordinateKind::Cube { side_len },
-            state: Default::default(),
-        }
+        Self::new(CoordinateKind::Cube { side_len })
     }
     /// Primary use case.
     /// Height should be equivalent to query radius.
     pub fn tri_h(height: f32) -> Self {
         let side_len = TriCoord::height_to_side_len(height);
-        SpatialHash {
-            data: [(); _].map(|_| Vec::new()),
-            kind: CoordinateKind::Tri { side_len },
-            state: Default::default(),
-        }
+        Self::new(CoordinateKind::Tri { side_len })
     }
     pub fn hex(circumradius: f32) -> Self {
-        SpatialHash {
-            data: [(); _].map(|_| Vec::new()),
-            kind: CoordinateKind::Hex { circumradius },
-            state: Default::default(),
-        }
+        Self::new(CoordinateKind::Hex { circumradius })
     }
 }
 
@@ -110,16 +104,19 @@ impl<T, const N: usize, S> SpatialHash<T, N, S> {
 }
 
 impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
-    pub fn idx(&self, x: f32, y: f32) -> usize {
+    pub fn idx(&self, x: f32, y: f32) -> (usize, [i32; 2]) {
         match self.kind {
             CoordinateKind::Cube { side_len } => {
-                self.coord_idx(Euclidean::from_euclidean(x, y, side_len))
+                let ec = Euclidean::from_euclidean(x, y, side_len);
+                (self.coord_idx(ec), [ec.x, ec.y])
             }
             CoordinateKind::Tri { side_len } => {
-                self.coord_idx(TriCoord::from_euclidean(x, y, side_len))
+                let ec = TriCoord::from_euclidean(x, y, side_len);
+                (self.coord_idx(ec), [ec.s, ec.t])
             }
             CoordinateKind::Hex { circumradius } => {
-                self.coord_idx(HexAxial::from_euclidean(x, y, circumradius))
+                let ec = HexAxial::from_euclidean(x, y, circumradius);
+                (self.coord_idx(ec), [ec.q, ec.r])
             }
         }
     }
@@ -131,7 +128,9 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
 
     /// Adds an item to this spatial hash
     pub fn add(&mut self, x: f32, y: f32, t: T) {
-        self.data[self.idx(x, y)].push(t);
+        let (idx, key) = self.idx(x, y);
+        self.data[idx].push(t);
+        self.data[idx].entry(key).or_insert_with(Vec::new).push(t);
     }
 
     /// Query items in a close proximity to a given (x,y) coordinate.
