@@ -142,7 +142,7 @@ impl State {
         //let mut sh = SpatialHash::hex(20.1);
         let mut sh = SpatialHash::cube(20.1);
         for (i, p) in self.pegs.iter().enumerate() {
-            sh.add(p.origin[0], p.origin[1], i);
+            sh.add(p.x(), p.y(), i);
         }
         self.static_spatial_hash = Some(sh);
     }

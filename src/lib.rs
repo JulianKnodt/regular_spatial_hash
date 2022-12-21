@@ -52,7 +52,7 @@ impl<I, S: Iterator<Item = I>, T: Iterator<Item = I>, U: Iterator<Item = I>> Ite
 #[derive(Debug, Clone)]
 pub struct SpatialHash<T, const N: usize = 256, S = DefaultHashBuilder> {
     /// Where the items are actually stored
-    data: [Vec<T>; N],
+    data: [BTreeMap<[i32; 2], Vec<T>>; N],
 
     /// Hash State
     state: S,
@@ -70,7 +70,7 @@ impl<T> SpatialHash<T, 256, DefaultHashBuilder> {
     /// Create an empty hex spatial hash
     pub fn new(kind: CoordinateKind) -> Self {
         SpatialHash {
-            data: [(); _].map(|_| Vec::new()),
+            data: [(); _].map(|_| BTreeMap::new()),
             kind,
             state: Default::default(),
         }
@@ -112,7 +112,7 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
             }
             CoordinateKind::Tri { side_len } => {
                 let ec = TriCoord::from_euclidean(x, y, side_len);
-                (self.coord_idx(ec), [ec.s, ec.t])
+                (self.coord_idx(ec), ec.canon2d())
             }
             CoordinateKind::Hex { circumradius } => {
                 let ec = HexAxial::from_euclidean(x, y, circumradius);
@@ -129,7 +129,7 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
     /// Adds an item to this spatial hash
     pub fn add(&mut self, x: f32, y: f32, t: T) {
         let (idx, key) = self.idx(x, y);
-        self.data[idx].push(t);
+        //self.data[idx].push(t);
         self.data[idx].entry(key).or_insert_with(Vec::new).push(t);
     }
 
@@ -142,7 +142,8 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
                     .one_ring()
                     .into_iter()
                     .chain(iter::once(ax))
-                    .flat_map(|hax| &self.data[self.coord_idx(hax)]);
+                    .filter_map(|hax| self.data[self.coord_idx(hax)].get(&[hax.x, hax.y]))
+                    .flat_map(|iter| iter);
                 Tri::A(iter)
             }
             CoordinateKind::Tri { side_len } => {
@@ -151,7 +152,8 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
                     .one_ring()
                     .into_iter()
                     .chain(iter::once(ax))
-                    .flat_map(|hax| &self.data[self.coord_idx(hax)]);
+                    .filter_map(|hax| self.data[self.coord_idx(hax)].get(&hax.canon2d()))
+                    .flat_map(|iter| iter);
                 Tri::B(iter)
             }
             CoordinateKind::Hex { circumradius } => {
@@ -160,7 +162,8 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
                     .one_ring()
                     .into_iter()
                     .chain(iter::once(ax))
-                    .flat_map(|hax| &self.data[self.coord_idx(hax)]);
+                    .filter_map(|hax| self.data[self.coord_idx(hax)].get(&[hax.q, hax.r]))
+                    .flat_map(|iter| iter);
                 Tri::C(iter)
             }
         }

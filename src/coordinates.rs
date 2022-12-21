@@ -177,12 +177,13 @@ impl TriCoord<i32> {
         let root3: f32 = (3.0f32).sqrt();
         h * 2. / root3
     }
+    // down is 1
+    // up is 2
     pub fn points_up(&self) -> bool {
         self.s + self.t + self.u == 2
     }
     pub fn new(x: f32, y: f32, side_len: f32) -> Self {
         let root3: f32 = (3.0f32).sqrt();
-        let y = y + 1e-5;
 
         let s = ((x - y * root3 / 3.) / side_len).ceil() as i32;
         let t = ((y * root3 * 2. / 3.) / side_len).floor();
@@ -200,6 +201,12 @@ impl TriCoord<i32> {
         );
         Self { s, t, u }
     }
+    pub fn canon2d(&self) -> [i32; 2] {
+        let sum = self.s + self.t + self.u;
+        assert!(sum == 1 || sum == 2, "Internal error {}", sum);
+        let x = 2 * self.s + if sum == 1 { 0 } else { 1 };
+        [x, self.t]
+    }
     fn neighbor_indices(up: bool) -> [[i32; 3]; 12] {
         if up {
             [
@@ -215,9 +222,9 @@ impl TriCoord<i32> {
                 [0, 1, -1],
                 [-1, 0, 1],
                 //
-                [-1, 1, 1],
-                [1, -1, 1],
-                [1, 1, -1],
+                [1, -1, -1],
+                [-1, 1, -1],
+                [-1, -1, 1],
             ]
         } else {
             [
@@ -233,9 +240,9 @@ impl TriCoord<i32> {
                 [0, 1, -1],
                 [-1, 0, 1],
                 //
-                [1, -1, -1],
-                [-1, 1, -1],
-                [-1, -1, 1],
+                [-1, 1, 1],
+                [1, -1, 1],
+                [1, 1, -1],
             ]
         }
     }
