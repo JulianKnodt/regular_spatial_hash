@@ -1,6 +1,7 @@
 #![feature(generic_const_exprs)]
 #![allow(incomplete_features)]
 #![feature(generic_arg_infer)]
+#![feature(return_position_impl_trait_in_trait)]
 
 pub mod coordinates;
 mod hash;
@@ -9,14 +10,14 @@ mod hash;
 mod tests;
 
 use coordinates::{Euclidean, HexAxial, RegularCoord, TriCoord};
-use std::default::Default;
-//use std::collections::hash_map::RandomState;
+use std::collections::hash_map::RandomState;
 use std::collections::BTreeMap;
+use std::default::Default;
 use std::hash::{BuildHasher, Hasher};
 use std::iter;
 
-//type DefaultHashBuilder = RandomState;
-type DefaultHashBuilder = hash::SimpleHashBuilder;
+type DefaultHashBuilder = RandomState;
+//type DefaultHashBuilder = hash::SimpleHashBuilder;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CoordinateKind {
@@ -139,6 +140,7 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
             CoordinateKind::Cube { side_len } => {
                 let ax = Euclidean::from_euclidean(x, y, side_len);
                 let iter = ax
+                    //.one_ring_clipped(x,y,side_len)
                     .one_ring()
                     .into_iter()
                     .chain(iter::once(ax))

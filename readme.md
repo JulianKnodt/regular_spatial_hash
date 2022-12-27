@@ -60,22 +60,40 @@ Why might it _not_ work?
 
 Because there are clearly reasons for and against it, it is necessary _to just benchmark it_.
 
-## Results
+## Results In Practice
 
-TODO write down results from reliable machine.
+Note:I while these results are interesting, probably for a first implementation there is not
+much benefit to changing from squares.
 
-In order to generate results run
-```sh
-cargo bench
-```
-And then look at the output results in
-```sh
-$root_dir/target/criterion/report/index.html
-```
+To compare the effectiveness of each kind of spatial hash, I made a simple plinko toy, which
+drops many balls amongst a set of equispaced pegs. The balls do not (currently) collide with
+each other, but they collide with the pegs, so they must be checked for intersection at each
+step. To do, so I use a spatial hash, and my implementation uses an enum for which kind of
+coordinate system to use. Then, at run-time, it simply initializes the pegs with each set of
+coordinates, and runs the demo.
 
-<!-- TODO triangle spatial hashes better for dense -->
-<!-- Cube is fine default -->
-<!-- TODO hex spatial hashes better for radius very small and sparse -->
+In the demo, there are 3 reported values:
+1. FPS: frames per second, which is related to the speed it takes to prepare each frame
+2. #Checks: The number of intersection pairs which are actually checked, even if they are
+  rejected
+3. And Frame Duration in milliseconds, which reports how long each frame takes to compute.
+
+We find that `#checks` directly corresponds to the area difference, with cubes being
+approximately 14k, triangles being 11k, and hexagons being 28k. Thus, if the number of
+point-point intersection checks is the bottleneck when using a cubic spatial hash, it might be
+good to switch to a triangle coordinate system.
+
+Surprisingly though, we find that this does not directly correlate with the speed of the
+resulting demo, finding _hexagons_ to be the fastest despite requiring more checks. This is
+likely because the time required to perform hashing for neighbors of hexagons is `7/9` that of
+cubes, whereas triangles is `13/9`. Since there are a relatively high number of balls, this also
+becomes a bottleneck. If instead we were to be querying a single point against many more pegs,
+we may find different results.
+
+Thus, when actually considering which to use in practice, it would be best to benchmark all
+three approaches and see which one actually does well.
+
+# Methodology
 
 ## Why must it be Regular?
 

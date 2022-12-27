@@ -1,5 +1,15 @@
 use std::hash::{Hash, Hasher};
 
+#[inline]
+fn sqr(v: f32) -> f32 {
+    v * v
+}
+
+/// distance between two points
+fn dist_sqr([x, y]: [f32; 2], [a, b]: [f32; 2]) -> f32 {
+    sqr(x - a) + sqr(y - b)
+}
+
 /// A coordinate on a regular grid.
 pub trait RegularCoord: Hash {
     const NEIGHBORS: usize;
@@ -9,6 +19,15 @@ pub trait RegularCoord: Hash {
     fn one_ring(&self) -> [Self; Self::NEIGHBORS]
     where
         Self: Sized;
+
+    fn one_ring_clipped(&self, x: f32, y: f32, param: f32) -> impl Iterator<Item = Self>
+    where
+        Self: Sized,
+        [Self; Self::NEIGHBORS]:,
+    {
+        let _ = (x, y, param);
+        self.one_ring().into_iter()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -155,6 +174,48 @@ impl RegularCoord for Euclidean<i32> {
             y: self.y + dy,
         })
     }
+
+    fn one_ring_clipped(&self, x: f32, y: f32, side_len: f32) -> impl Iterator<Item = Self> {
+        let sx = self.x as f32 * side_len;
+        let sy = self.y as f32 * side_len;
+        let tl = [sx, sy];
+        let tr = [sx + side_len, sy];
+        let bl = [sx, sy + side_len];
+        let br = [sx + side_len, sy + side_len];
+        let s2 = side_len * side_len;
+        let sx = self.x;
+        let sy = self.y;
+        [
+            (Some(bl), [-1, -1]),
+            (None, [-1, 0]),
+            (Some(tl), [-1, 1]),
+            //
+            (None, [0, -1]),
+            (None, [0, 1]),
+            //
+            (Some(br), [1, -1]),
+            (None, [1, 0]),
+            (Some(tr), [1, 1]),
+        ]
+        .into_iter()
+        .filter_map(move |(pt, [dx, dy])| match pt {
+            None => Some(Euclidean {
+                x: sx + dx,
+                y: sy + dy,
+            }),
+            Some(near) => {
+                if dist_sqr(near, [x, y]) < s2 {
+                    Some(Euclidean {
+                        x: sx + dx,
+                        y: sy + dy,
+                    })
+                } else {
+                    None
+                }
+            }
+        })
+        //
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -166,9 +227,9 @@ pub struct TriCoord<T> {
 
 impl Hash for TriCoord<i32> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_i32(self.s);
-        state.write_i32(self.t);
-        state.write_i32(self.u);
+        let [x, y] = self.canon2d();
+        state.write_i32(x);
+        state.write_i32(y);
     }
 }
 
@@ -185,25 +246,24 @@ impl TriCoord<i32> {
     pub fn new(x: f32, y: f32, side_len: f32) -> Self {
         let root3: f32 = (3.0f32).sqrt();
 
-        let s = ((x - y * root3 / 3.) / side_len).ceil() as i32;
+        let yr3d3 = y * root3 / 3.;
+        let s = ((x - yr3d3) / side_len).ceil() as i32;
         let t = ((y * root3 * 2. / 3.) / side_len).floor();
         let t = t as i32 + 1;
-        let u = ((-x - y * root3 / 3.) / side_len).ceil() as i32;
+        let u = ((-x - yr3d3) / side_len).ceil() as i32;
+        /*
         let sum = s + t + u;
 
-        if sum == 0 {
-            return Self::new(x + 1e-8, y, side_len);
-        }
-
-        assert!(
+        debug_assert!(
             sum == 1 || sum == 2,
             "Internal error, unexpected {sum} {s} {t} {u} {x} {y}"
         );
+        */
         Self { s, t, u }
     }
     pub fn canon2d(&self) -> [i32; 2] {
         let sum = self.s + self.t + self.u;
-        assert!(sum == 1 || sum == 2, "Internal error {}", sum);
+        debug_assert!(sum == 1 || sum == 2, "Internal error {}", sum);
         let x = 2 * self.s + if sum == 1 { 0 } else { 1 };
         [x, self.t]
     }

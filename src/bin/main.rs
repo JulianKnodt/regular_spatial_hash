@@ -88,6 +88,7 @@ struct State {
     peg_checks: usize,
 
     dt: time::Duration,
+
     substeps: usize,
 
     mode: CollisionMode,
@@ -97,6 +98,7 @@ struct State {
 
     // text buffers
     fps_text: graphics::Text,
+    dur_text: graphics::Text,
     peg_text: graphics::Text,
 }
 
@@ -117,6 +119,7 @@ impl State {
             frame: 0,
 
             fps_text: graphics::Text::new("..."),
+            dur_text: graphics::Text::new("..."),
             peg_text: graphics::Text::new("..."),
         }
     }
@@ -138,9 +141,9 @@ impl State {
         }
     }
     fn make_peg_spatial_hash(&mut self) {
-        //let mut sh = SpatialHash::tri_h(20.1);
-        //let mut sh = SpatialHash::hex(20.1);
-        let mut sh = SpatialHash::cube(20.1);
+        //let mut sh = SpatialHash::tri_h(20.01);
+        let mut sh = SpatialHash::hex(20.01);
+        //let mut sh = SpatialHash::cube(20.1);
         for (i, p) in self.pegs.iter().enumerate() {
             sh.add(p.x(), p.y(), i);
         }
@@ -213,12 +216,21 @@ impl State {
 impl ggez::event::EventHandler<GameError> for State {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         // fps is 1/dt where dt is in seconds.
-        self.dt = ctx.time.delta();
+        self.dt = time::Duration::from_secs_f32(
+            self.dt.as_secs_f32() * 0.9 + ctx.time.delta().as_secs_f32() * 0.1,
+        );
 
         self.frame += 1;
         if self.frame % 50 == 0 {
             self.fps_text = graphics::Text::new(graphics::TextFragment {
                 text: format!("FPS: {}", 1. / self.dt.as_secs_f32()),
+                scale: Some(graphics::PxScale { x: 24., y: 24. }),
+                font: None,
+                color: Some(graphics::Color::BLACK),
+            });
+
+            self.dur_text = graphics::Text::new(graphics::TextFragment {
+                text: format!("Frame Dur: {:?}", self.dt),
                 scale: Some(graphics::PxScale { x: 24., y: 24. }),
                 font: None,
                 color: Some(graphics::Color::BLACK),
@@ -291,7 +303,12 @@ impl ggez::event::EventHandler<GameError> for State {
 
         canvas.draw(
             &self.peg_text,
-            graphics::DrawParam::default().dest([400., 0.]),
+            graphics::DrawParam::default().dest([300., 0.]),
+        );
+
+        canvas.draw(
+            &self.dur_text,
+            graphics::DrawParam::default().dest([600., 0.]),
         );
 
         canvas.finish(ctx)?;
