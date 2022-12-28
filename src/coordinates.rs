@@ -20,6 +20,8 @@ pub trait RegularCoord: Hash {
     where
         Self: Sized;
 
+    /// A specialized function for performing clipping on neighbors if they do not need to be
+    /// checked.
     fn one_ring_clipped(&self, x: f32, y: f32, param: f32) -> impl Iterator<Item = Self>
     where
         Self: Sized,
@@ -251,14 +253,13 @@ impl TriCoord<i32> {
         let t = ((y * root3 * 2. / 3.) / side_len).floor();
         let t = t as i32 + 1;
         let u = ((-x - yr3d3) / side_len).ceil() as i32;
-        /*
         let sum = s + t + u;
 
         debug_assert!(
             sum == 1 || sum == 2,
             "Internal error, unexpected {sum} {s} {t} {u} {x} {y}"
         );
-        */
+
         Self { s, t, u }
     }
     pub fn canon2d(&self) -> [i32; 2] {

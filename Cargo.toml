@@ -2,15 +2,16 @@
 name = "spatial_hash"
 version = "0.1.0"
 edition = "2021"
+description = "A 2D Spatial Hash which uses cubes, triangles and hexes."
+repository = "https://github.com/JulianKnodt/regular_spatial_hash"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
-ggez = { git = "https://github.com/ggez/ggez", branch = "devel" }
-either = "1.8.0"
-
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }
+ggez = { git = "https://github.com/ggez/ggez", branch = "devel" }
+either = "1.8.0"
 
 [[bench]]
 name = "isect_ck"

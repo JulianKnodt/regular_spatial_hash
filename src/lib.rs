@@ -5,6 +5,7 @@
 
 pub mod coordinates;
 mod hash;
+pub mod lines;
 
 #[cfg(test)]
 mod tests;
@@ -132,6 +133,22 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
         let (idx, key) = self.idx(x, y);
         //self.data[idx].push(t);
         self.data[idx].entry(key).or_insert_with(Vec::new).push(t);
+    }
+
+    /// adds a line to the spatial hash using the bresenham algorithm.
+    pub fn add_line_bresenham(&mut self, l_start: [f32; 2], l_end: [f32; 2], t: T)
+    where
+        T: Copy,
+    {
+        let (_, l_start) = self.idx(l_start[0], l_start[1]);
+        let (_, l_end) = self.idx(l_end[0], l_end[1]);
+        for [x, y] in lines::bresenham(l_start, l_end) {
+            let idx = self.coord_idx(Euclidean { x, y });
+            self.data[idx]
+                .entry([x, y])
+                .or_insert_with(Vec::new)
+                .push(t);
+        }
     }
 
     /// Query items in a close proximity to a given (x,y) coordinate.
