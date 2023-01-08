@@ -172,8 +172,8 @@ impl RegularCoord for Euclidean<i32> {
     const NEIGHBORS: usize = 8;
     fn one_ring(&self) -> [Euclidean<i32>; 8] {
         Self::neighbor_indices().map(move |[dx, dy]| Euclidean {
-            x: self.x + dx,
-            y: self.y + dy,
+            x: self.x.saturating_add(dx),
+            y: self.y.saturating_add(dy),
         })
     }
 
