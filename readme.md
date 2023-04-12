@@ -18,6 +18,17 @@ some benefits as shown below.
   alt="Cube Grid" width="150"
 />
 
+## Basic Usage
+
+
+```rust
+let mut sh = SpatialHash::default();
+sh.add(0.1, 0.1, 1);
+sh.add(0.3, 0.3, 2);
+let items = sh.query(0.299, 0.299);
+assert!(items.contains(&2));
+```
+
 ## Why other kinds of regular tilings?
 
 Most Implementations use the cube grid (right and red). What we're interested in improving is

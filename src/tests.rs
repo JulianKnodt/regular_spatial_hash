@@ -22,8 +22,8 @@ fn adjacent_test() {
 
     panic!(
         "{:?} {:?} {:?}",
-        sh_cube.query(0.5, 0.5).count(),
-        sh_tri.query(0.5, 0.5).count(),
-        sh_hex.query(0.5, 0.5).count(),
+        sh_cube.query(0.5, 0.5).len(),
+        sh_tri.query(0.5, 0.5).len(),
+        sh_hex.query(0.5, 0.5).len(),
     );
 }
