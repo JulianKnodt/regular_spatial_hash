@@ -20,7 +20,10 @@ impl<T> Spatial2DQuery<T> for ImplSpatial2DQuery<T> {
         self.sh.add(x, y, ([x, y], val));
     }
     fn query(&self, p @ [x, y]: [f32; 2]) -> impl Iterator<Item = [f32; 2]> + '_ {
-        self.sh.query(x, y).map(|v| v.0).filter(move |&v| Self::dist(v, p) <= self.r)
+        self.sh
+            .query(x, y)
+            .map(|v| v.0)
+            .filter(move |&v| Self::dist(v, p) <= self.r)
     }
 }
 

@@ -4,7 +4,7 @@
 #![feature(return_position_impl_trait_in_trait)]
 
 pub mod coordinates;
-mod hash;
+pub mod hash;
 pub mod lines;
 
 #[cfg(test)]
@@ -128,11 +128,36 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
         (h.finish() as usize) % N
     }
 
-    /// Adds an item to this spatial hash
-    pub fn add(&mut self, x: f32, y: f32, t: T) {
+    /// Adds an item to this spatial hash. Returns the item set that it was added to.
+    /// This can be used to sort the items for later querying.
+    /// Mainly exists so you can have a z buffer in it.
+    pub fn add(&mut self, x: f32, y: f32, t: T) -> &mut [T] {
         let (idx, key) = self.idx(x, y);
-        //self.data[idx].push(t);
-        self.data[idx].entry(key).or_insert_with(Vec::new).push(t);
+        let v = self.data[idx].entry(key).or_insert_with(Vec::new);
+        v.push(t);
+        v
+    }
+    /// Adds an item to this spatial hash
+    pub fn add_with_conflict_resolution(
+        &mut self,
+        x: f32,
+        y: f32,
+        t: T,
+        resolve: impl Fn(T, T) -> T,
+    ) {
+        let (idx, key) = self.idx(x, y);
+        use std::collections::btree_map::Entry;
+        match self.data[idx].entry(key) {
+            Entry::Vacant(v) => {
+                v.insert(vec![t]);
+            }
+            Entry::Occupied(mut o) => {
+                assert_eq!(o.get().len(), 1);
+                let v = o.get_mut();
+                let new = resolve(t, v.pop().unwrap());
+                v.push(new);
+            }
+        }
     }
 
     /// adds a line to the spatial hash using the bresenham algorithm.
@@ -151,8 +176,34 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
         }
     }
 
+    pub fn query(&self, x: f32, y: f32) -> &[T] {
+        match self.kind {
+            CoordinateKind::Cube { side_len } => {
+                let ax = Euclidean::from_euclidean(x, y, side_len);
+                self.data[self.coord_idx(ax)]
+                    .get(&[ax.x, ax.y])
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[])
+            }
+            CoordinateKind::Tri { side_len } => {
+                let ax = TriCoord::from_euclidean(x, y, side_len);
+                self.data[self.coord_idx(ax)]
+                    .get(&ax.canon2d())
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[])
+            }
+            CoordinateKind::Hex { circumradius } => {
+                let ax = HexAxial::from_euclidean(x, y, circumradius);
+                self.data[self.coord_idx(ax)]
+                    .get(&[ax.q, ax.r])
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[])
+            }
+        }
+    }
+
     /// Query items in a close proximity to a given (x,y) coordinate.
-    pub fn query(&self, x: f32, y: f32) -> impl Iterator<Item = &T> + '_ {
+    pub fn query_one_ring(&self, x: f32, y: f32) -> impl Iterator<Item = &[T]> + '_ {
         match self.kind {
             CoordinateKind::Cube { side_len } => {
                 let ax = Euclidean::from_euclidean(x, y, side_len);
@@ -161,8 +212,11 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
                     .one_ring()
                     .into_iter()
                     .chain(iter::once(ax))
-                    .filter_map(|hax| self.data[self.coord_idx(hax)].get(&[hax.x, hax.y]))
-                    .flat_map(|iter| iter);
+                    .filter_map(|hax| {
+                        self.data[self.coord_idx(hax)]
+                            .get(&[hax.x, hax.y])
+                            .map(Vec::as_slice)
+                    });
                 Tri::A(iter)
             }
             CoordinateKind::Tri { side_len } => {
@@ -171,8 +225,11 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
                     .one_ring()
                     .into_iter()
                     .chain(iter::once(ax))
-                    .filter_map(|hax| self.data[self.coord_idx(hax)].get(&hax.canon2d()))
-                    .flat_map(|iter| iter);
+                    .filter_map(|hax| {
+                        self.data[self.coord_idx(hax)]
+                            .get(&hax.canon2d())
+                            .map(Vec::as_slice)
+                    });
                 Tri::B(iter)
             }
             CoordinateKind::Hex { circumradius } => {
@@ -181,8 +238,11 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
                     .one_ring()
                     .into_iter()
                     .chain(iter::once(ax))
-                    .filter_map(|hax| self.data[self.coord_idx(hax)].get(&[hax.q, hax.r]))
-                    .flat_map(|iter| iter);
+                    .filter_map(|hax| {
+                        self.data[self.coord_idx(hax)]
+                            .get(&[hax.q, hax.r])
+                            .map(Vec::as_slice)
+                    });
                 Tri::C(iter)
             }
         }
