@@ -122,6 +122,7 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
             }
         }
     }
+    #[inline]
     pub fn coord_idx(&self, ax: impl RegularCoord) -> usize {
         let mut h = self.state.build_hasher();
         ax.hash(&mut h);
@@ -136,6 +137,57 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
         let v = self.data[idx].entry(key).or_insert_with(Vec::new);
         v.push(t);
         v
+    }
+
+    /// Returns if two coordinates fall into the same bin for this spatial hash
+    pub fn same_bin(&self, x: f32, y: f32, a: f32, b: f32) -> bool {
+        self.idx(x, y).1 == self.idx(a,b).1
+    }
+    pub fn add_one_ring(&mut self, x: f32, y: f32, t: T, cb: impl Fn(&mut [T]))
+    where
+        T: Copy,
+    {
+        match self.kind {
+            CoordinateKind::Cube { side_len } => {
+                let ax = Euclidean::from_euclidean(x, y, side_len);
+                ax.one_ring()
+                    .into_iter()
+                    .chain(iter::once(ax))
+                    .for_each(move |hax| {
+                        let v = self.data[self.coord_idx(hax)]
+                            .entry([hax.x, hax.y])
+                            .or_insert_with(Vec::new);
+                        v.push(t);
+                        cb(v)
+                    });
+            }
+            CoordinateKind::Tri { side_len } => {
+                let ax = TriCoord::from_euclidean(x, y, side_len);
+                ax.one_ring()
+                    .into_iter()
+                    .chain(iter::once(ax))
+                    .for_each(move |hax| {
+                        let v = self.data[self.coord_idx(hax)]
+                            .entry(hax.canon2d())
+                            .or_insert_with(Vec::new);
+                        v.push(t);
+                        cb(v)
+                    });
+            }
+            CoordinateKind::Hex { circumradius } => {
+                let ax = HexAxial::from_euclidean(x, y, circumradius);
+                ax.one_ring()
+                    .into_iter()
+                    .chain(iter::once(ax))
+                    .for_each(move |hax| {
+                        let v = self.data[self.coord_idx(hax)]
+                            .entry([hax.q, hax.r])
+                            .or_insert_with(Vec::new);
+                        v.push(t);
+                        cb(v)
+                    });
+            }
+        }
     }
     /// Adds an item to this spatial hash
     pub fn add_with_conflict_resolution(
@@ -177,29 +229,8 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
     }
 
     pub fn query(&self, x: f32, y: f32) -> &[T] {
-        match self.kind {
-            CoordinateKind::Cube { side_len } => {
-                let ax = Euclidean::from_euclidean(x, y, side_len);
-                self.data[self.coord_idx(ax)]
-                    .get(&[ax.x, ax.y])
-                    .map(Vec::as_slice)
-                    .unwrap_or(&[])
-            }
-            CoordinateKind::Tri { side_len } => {
-                let ax = TriCoord::from_euclidean(x, y, side_len);
-                self.data[self.coord_idx(ax)]
-                    .get(&ax.canon2d())
-                    .map(Vec::as_slice)
-                    .unwrap_or(&[])
-            }
-            CoordinateKind::Hex { circumradius } => {
-                let ax = HexAxial::from_euclidean(x, y, circumradius);
-                self.data[self.coord_idx(ax)]
-                    .get(&[ax.q, ax.r])
-                    .map(Vec::as_slice)
-                    .unwrap_or(&[])
-            }
-        }
+        let (idx, key) = self.idx(x, y);
+        self.data[idx].get(&key).map(Vec::as_slice).unwrap_or(&[])
     }
 
     /// Query items in a close proximity to a given (x,y) coordinate.
