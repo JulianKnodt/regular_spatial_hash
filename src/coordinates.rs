@@ -15,6 +15,7 @@ pub trait RegularCoord: Hash {
     const NEIGHBORS: usize;
 
     fn from_euclidean(x: f32, y: f32, param: f32) -> Self;
+    fn to_euclidean(&self, param: f32) -> [f32; 2];
 
     fn one_ring(&self) -> [Self; Self::NEIGHBORS]
     where
@@ -101,6 +102,10 @@ impl RegularCoord for HexAxial<i32> {
     fn from_euclidean(x: f32, y: f32, circumradius: f32) -> Self {
         HexAxial::<f32>::new(x, y, circumradius).round()
     }
+    fn to_euclidean(&self, circumradius: f32) -> [f32; 2] {
+        let _ = circumradius;
+        todo!()
+    }
 }
 
 impl HexAxial<i32> {
@@ -168,6 +173,11 @@ impl RegularCoord for Euclidean<i32> {
             x: (x / side_len).floor() as i32,
             y: (y / side_len).floor() as i32,
         }
+    }
+    #[inline]
+    fn to_euclidean(&self, side_len: f32) -> [f32; 2] {
+        let &Euclidean { x, y } = self;
+        [x as f32 * side_len, y as f32 * side_len]
     }
     const NEIGHBORS: usize = 8;
     fn one_ring(&self) -> [Euclidean<i32>; 8] {
@@ -313,6 +323,9 @@ impl RegularCoord for TriCoord<i32> {
     const NEIGHBORS: usize = 12;
     fn from_euclidean(x: f32, y: f32, side_len: f32) -> Self {
         Self::new(x, y, side_len)
+    }
+    fn to_euclidean(&self, _side_len: f32) -> [f32; 2] {
+        todo!()
     }
     fn one_ring(&self) -> [Self; Self::NEIGHBORS] {
         Self::neighbor_indices(self.points_up()).map(|[ds, dt, du]| TriCoord {

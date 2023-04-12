@@ -128,6 +128,30 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
         ax.hash(&mut h);
         (h.finish() as usize) % N
     }
+    /// Iterates over each bin in this spatial hash, returning the 2D coordinate in floating
+    /// point, and all the stored values.
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = ([f32; 2], &[T])> {
+        self.data.iter().flat_map(|bins| {
+            bins.iter().filter_map(|(&[u, v], vals)| {
+                if vals.is_empty() {
+                    return None;
+                }
+                let coord = match self.kind {
+                    CoordinateKind::Cube { side_len } => {
+                        Euclidean { x: u, y: v }.to_euclidean(side_len)
+                    }
+                    CoordinateKind::Tri { side_len: _ } => {
+                        todo!("TODO convert uv to TriCoord")
+                    }
+                    CoordinateKind::Hex { circumradius } => {
+                        HexAxial { q: u, r: v }.to_euclidean(circumradius)
+                    }
+                };
+                Some((coord, vals.as_slice()))
+            })
+        })
+    }
 
     /// Adds an item to this spatial hash. Returns the item set that it was added to.
     /// This can be used to sort the items for later querying.
@@ -141,7 +165,7 @@ impl<T, const N: usize, S: BuildHasher + Default> SpatialHash<T, N, S> {
 
     /// Returns if two coordinates fall into the same bin for this spatial hash
     pub fn same_bin(&self, x: f32, y: f32, a: f32, b: f32) -> bool {
-        self.idx(x, y).1 == self.idx(a,b).1
+        self.idx(x, y).1 == self.idx(a, b).1
     }
     pub fn add_one_ring(&mut self, x: f32, y: f32, t: T, cb: impl Fn(&mut [T]))
     where
